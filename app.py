@@ -19,7 +19,8 @@ st.markdown("---")
 def load_and_process_data():
     DATA_URL = "https://raw.githubusercontent.com/databricks/Spark-The-Definitive-Guide/master/data/retail-data/all/online-retail-dataset.csv"
     
-    df = pd.read_csv(DATA_URL, encoding='ISO-8859-1')
+    # Fast load: Use only the first 150,000 rows to prevent the free server from stalling
+    df = pd.read_csv(DATA_URL, encoding='ISO-8859-1', nrows=150000)
     df.columns = [col.strip() for col in df.columns]
     
     # Cleaning
@@ -49,15 +50,15 @@ def load_and_process_data():
     kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
     kmeans.fit(rfm_scaled)
     
-    # 3. Product Recommendation Setup
+    # 3. Product Recommendation Setup (Optimized to top 150 items for speed)
     df['Description'] = df['Description'].str.strip()
-    top_items = df['Description'].value_counts().head(300).index
+    top_items = df['Description'].value_counts().head(150).index
     df_filtered = df[df['Description'].isin(top_items)]
     pivot_matrix = df_filtered.groupby(['Description', 'CustomerID'])['Quantity'].sum().unstack().fillna(0)
     item_similarity = cosine_similarity(pivot_matrix)
     similarity_df = pd.DataFrame(item_similarity, index=pivot_matrix.index, columns=pivot_matrix.index)
     
-    # 4. Cohort Analysis Construction (Fixed Syntax Error)
+    # 4. Cohort Analysis Construction
     df['CohortMonth'] = df.groupby('CustomerID')['InvoiceDate'].transform(lambda x: x.min().to_period('M'))
     df['CohortIndex'] = (df['InvoiceMonth'].dt.year - df['CohortMonth'].dt.year) * 12 + (df['InvoiceMonth'].dt.month - df['CohortMonth'].dt.month)
     
@@ -85,7 +86,6 @@ tabs = st.tabs(["📊 Exploratory Data Analysis", "🎯 Customer Segmentation", 
 with tabs[0]:
     st.header("Exploratory Data Analysis Overview")
     
-    # High-level Metrics Row
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Total Sales Volume", f"${df['TotalSpend'].sum():,.2f}")
     m2.metric("Total Transactions", f"{df['InvoiceNo'].nunique():,}")
@@ -103,7 +103,6 @@ with tabs[0]:
     with col_right:
         st.subheader("Monthly Sales Trend")
         monthly_sales = df.groupby('InvoiceMonth')['TotalSpend'].sum().sort_values(by='InvoiceMonth')
-        # Convert index to string for compatible chart rendering
         monthly_sales.index = monthly_sales.index.astype(str)
         st.line_chart(monthly_sales)
 
@@ -143,7 +142,6 @@ with tabs[3]:
     st.header("User Lifecycle Cohort Analysis")
     st.write("Percentage values track user retention trajectories relative to original sign-up timelines.")
     
-    # Present formatted matrix view directly
     retention_matrix.index = retention_matrix.index.astype(str)
     formatted_retention = retention_matrix.style.format("{:.1%}", na_rep="")
     st.dataframe(formatted_retention, use_container_width=True)
