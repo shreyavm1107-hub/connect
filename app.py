@@ -192,7 +192,7 @@ with tabs[3]:
     
     # Generate the clear heatmap figure using matplotlib and seaborn
     fig, ax = plt.subplots(figsize=(12, 6))
-    sns.heatmap(retention_matrix, annot=True, fmt=".1%", cmap="YlGnBu", cbar=True, ax=ax, encoding='utf-8')
+    sns.heatmap(retention_matrix, annot=True, fmt=".1%", cmap="YlGnBu", cbar=True, ax=ax)
     plt.title("Customer Retention Heatmap (Monthly Cohorts)")
     plt.ylabel("Cohort Grouping Month")
     plt.xlabel("Months Elapsed Since Activation")
