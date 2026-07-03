@@ -4,7 +4,6 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import cosine_similarity
-import urllib.request
 import os
 
 # Set up page styling
@@ -16,26 +15,35 @@ st.subheader("Created by Shreya Mohite")
 st.write("An end-to-end Machine Learning pipeline for Customer Segmentation and Product Recommendations.")
 st.markdown("---")
 
-# --- Data & Machine Learning Pipeline (Cached for Speed) ---
+# --- Data & Machine Learning Pipeline ---
 @st.cache_resource
 def initialize_ml_pipeline():
-    FILE_NAME = 'Online_Retail_Data.csv'
-    DATA_URL = "https://raw.githubusercontent.com/databricks/Spark-The-Definitive-Guide/master/data/retail-data/all/online-retail-dataset.csv"
+    # ⚠️ PASTE YOUR COPIED RAW GITHUB CSV URL BETWEEN THE QUOTES BELOW:
+    DATA_URL = "PASTE_YOUR_RAW_GITHUB_LINK_HERE"
     
-    # Download dataset if not present
-    if not os.path.exists(FILE_NAME):
-        with st.spinner("Downloading retail dataset and training ML models for the first time... Please wait."):
-            urllib.request.urlretrieve(DATA_URL, FILE_NAME)
-            
-    # Load and clean data
-    df = pd.read_csv(FILE_NAME, encoding='ISO-8859-1')
+    if DATA_URL == "PASTE_YOUR_RAW_GITHUB_LINK_HERE":
+        st.error("🚨 Configuration Error: Please replace the placeholder link in app.py with your raw GitHub CSV URL.")
+        st.stop()
+        
+    # Load data dynamically from your repository
+    try:
+        df = pd.read_csv(DATA_URL, encoding='ISO-8859-1')
+    except Exception:
+        df = pd.read_csv(DATA_URL, encoding='utf-8', errors='ignore')
+        
+    # Match uniform column formats
     df.columns = [col.strip() for col in df.columns]
+    
+    # Standard Data Cleaning
     df.dropna(subset=['CustomerID'], inplace=True)
     df['CustomerID'] = df['CustomerID'].astype(int)
     df = df[~df['InvoiceNo'].astype(str).str.startswith('C', na=False)]
     df = df[(df['Quantity'] > 0) & (df['UnitPrice'] > 0)]
     df['TotalSpend'] = df['Quantity'] * df['UnitPrice']
-    df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+    
+    # Handle explicit date parsing variations
+    df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], errors='coerce')
+    df.dropna(subset=['InvoiceDate'], inplace=True)
     
     # Feature Engineering (RFM Analysis)
     snapshot_date = df['InvoiceDate'].max() + pd.DateOffset(days=1)
@@ -54,9 +62,10 @@ def initialize_ml_pipeline():
     kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
     kmeans.fit(rfm_scaled)
     
-    # Train Recommendation Engine (Top 500 popular products for performance optimization)
+    # Train Recommendation Engine (Filtered to optimize computing speeds)
     df['Description'] = df['Description'].str.strip()
-    top_items = df['Description'].value_counts().head(500).index
+    df = df[df['Description'] != ""]
+    top_items = df['Description'].value_counts().head(400).index
     df_filtered = df[df['Description'].isin(top_items)]
     
     pivot_matrix = df_filtered.groupby(['Description', 'CustomerID'])['Quantity'].sum().unstack().fillna(0)
@@ -93,7 +102,6 @@ with tab1:
         monetary = st.number_input("Monetary Value (Total revenue generated ($))", min_value=1.0, max_value=50000.0, value=350.0)
 
     if st.button("Run Profile Classification"):
-        # Map input to model architecture transformations
         input_data = np.array([[recency, frequency, monetary]])
         input_log = np.log1p(input_data)
         input_scaled = scaler.transform(input_log)
@@ -115,12 +123,11 @@ with tab2:
     
     if st.button("Generate Smart Recommendations"):
         if selected_product:
-            # Extract top matching correlations 
             recommendations = similarity_df[selected_product].sort_values(ascending=False).iloc[1:6]
             
             st.markdown("### Top 5 Frequently Bought Together Items:")
             cols = st.columns(5)
             for i, (prod_name, score) in enumerate(recommendations.items()):
                 with cols[i]:
-                    st.metric(label=f"Match #{i+1}", value=f"{score*100:.1f}% Confidence Match")
+                    st.metric(label=f"Match #{i+1}", value=f"{score*100:.1f}% Confidence")
                     st.write(f"**{prod_name}**")
