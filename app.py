@@ -103,7 +103,7 @@ with tabs[0]:
         
     with col_right:
         st.subheader("Monthly Sales Trend")
-        monthly_sales = df.groupby('InvoiceMonth')['TotalSpend'].sum().sort_values(by='InvoiceMonth')
+        monthly_sales = df.groupby('InvoiceMonth')['TotalSpend'].sum().sort_values('InvoiceMonth')
         monthly_sales.index = monthly_sales.index.astype(str)
         st.line_chart(monthly_sales)
 
