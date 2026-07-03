@@ -1,12 +1,26 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+import seaborn as sns
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Set up page layout
+# Set up page layout to mimic the screenshot
 st.set_page_config(page_title="Shopper Spectrum Pro", layout="wide")
+
+# --- SIDEBAR CONFIGURATION ---
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/3081/3081559.png", width=100) # Generic shopping bag logo
+    st.title("Navigation Panel")
+    st.info("Use the tabs on the main screen to explore the deep retail insights.")
+    st.markdown("---")
+    st.markdown("### Project Framework")
+    st.write("• RFM Segmentation\n• Collaborative Filtering\n• Cohort Analysis")
 
 # --- App Branding Header ---
 st.title("🛍️ Shopper Spectrum: Advanced E-Commerce Analytics")
@@ -19,7 +33,7 @@ st.markdown("---")
 def load_and_process_data():
     DATA_URL = "https://raw.githubusercontent.com/databricks/Spark-The-Definitive-Guide/master/data/retail-data/all/online-retail-dataset.csv"
     
-    # Fast load: Use only the first 150,000 rows to prevent the free server from stalling
+    # Using 150k rows to keep rendering times super fast on the cloud container
     df = pd.read_csv(DATA_URL, encoding='ISO-8859-1', nrows=150000)
     df.columns = [col.strip() for col in df.columns]
     
@@ -32,7 +46,7 @@ def load_and_process_data():
     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], errors='coerce')
     df.dropna(subset=['InvoiceDate'], inplace=True)
     
-    # 1. Base Data for EDA (Convert directly to string to avoid Period/Series sort errors)
+    # 1. Base Data for EDA
     df['InvoiceMonth'] = df['InvoiceDate'].dt.strftime('%Y-%m')
     
     # 2. RFM Feature Engineering for Clustering
@@ -50,7 +64,10 @@ def load_and_process_data():
     kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
     kmeans.fit(rfm_scaled)
     
-    # 3. Product Recommendation Setup (Optimized to top 150 items for speed)
+    # Add clusters back to rfm dataframe
+    rfm['Cluster'] = kmeans.labels_
+    
+    # 3. Product Recommendation Setup
     df['Description'] = df['Description'].str.strip()
     top_items = df['Description'].value_counts().head(150).index
     df_filtered = df[df['Description'].isin(top_items)]
@@ -60,13 +77,10 @@ def load_and_process_data():
     
     # 4. Cohort Analysis Construction
     df['CohortMonth'] = df.groupby('CustomerID')['InvoiceDate'].transform(lambda x: x.min().strftime('%Y-%m'))
-    
-    # Calculate intervals cleanly using integers
     df['InvoiceYearInt'] = df['InvoiceDate'].dt.year
     df['InvoiceMonthInt'] = df['InvoiceDate'].dt.month
     df['CohortYearInt'] = pd.to_datetime(df['CohortMonth'] + '-01').dt.year
     df['CohortMonthInt'] = pd.to_datetime(df['CohortMonth'] + '-01').dt.month
-    
     df['CohortIndex'] = (df['InvoiceYearInt'] - df['CohortYearInt']) * 12 + (df['InvoiceMonthInt'] - df['CohortMonthInt'])
     
     cohort_data = df.groupby(['CohortMonth', 'CohortIndex'])['CustomerID'].nunique().reset_index()
@@ -89,33 +103,60 @@ CLUSTER_MAP = {
 # --- Multi-Tab Application Frame ---
 tabs = st.tabs(["📊 Exploratory Data Analysis", "🎯 Customer Segmentation", "📦 Product Recommendations", "📈 Cohort Retention Analysis"])
 
-# --- TAB 1: EDA ---
+# --- TAB 1: EDA (MATCHING THE SCREENSHOT PLOTS) ---
 with tabs[0]:
     st.header("Exploratory Data Analysis Overview")
     
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Total Sales Volume", f"${df['TotalSpend'].sum():,.2f}")
-    m2.metric("Total Transactions", f"{df['InvoiceNo'].nunique():,}")
-    m3.metric("Unique Items Cataloged", f"{df['StockCode'].nunique():,}")
-    m4.metric("Active Customer Base", f"{df['CustomerID'].nunique():,}")
-    
-    st.markdown("---")
+    # Styled HTML/CSS KPI Blocks to match colored dashboard metrics
+    st.markdown(f"""
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 25px;">
+        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center; border-left: 5px solid #ff4b4b;">
+            <p style="margin: 0; color: #555; font-weight: bold;">Total Sales Volume</p>
+            <h2 style="margin: 5px 0 0 0; color: #111;">${df['TotalSpend'].sum():,.2f}</h2>
+        </div>
+        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center; border-left: 5px solid #00a65a;">
+            <p style="margin: 0; color: #555; font-weight: bold;">Total Transactions</p>
+            <h2 style="margin: 5px 0 0 0; color: #111;">{df['InvoiceNo'].nunique():,}</h2>
+        </div>
+        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center; border-left: 5px solid #00c0ef;">
+            <p style="margin: 0; color: #555; font-weight: bold;">Items Cataloged</p>
+            <h2 style="margin: 5px 0 0 0; color: #111;">{df['StockCode'].nunique():,}</h2>
+        </div>
+        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center; border-left: 5px solid #f39c12;">
+            <p style="margin: 0; color: #555; font-weight: bold;">Active Customers</p>
+            <h2 style="margin: 5px 0 0 0; color: #111;">{df['CustomerID'].nunique():,}</h2>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     col_left, col_right = st.columns(2)
     with col_left:
         st.subheader("Sales Activity By Country Profile (Top 10)")
-        country_sales = df.groupby('Country')['TotalSpend'].sum().sort_values(ascending=False).head(10)
-        st.bar_chart(country_sales)
+        country_sales = df.groupby('Country')['TotalSpend'].sum().sort_values(ascending=False).head(10).reset_index()
+        fig_country = px.bar(country_sales, x='TotalSpend', y='Country', orientation='h', 
+                             color='TotalSpend', color_continuous_scale='Viridis', template='plotly_white')
+        fig_country.update_layout(yaxis={'categoryorder':'total ascending'})
+        st.plotly_chart(fig_country, use_container_width=True)
         
     with col_right:
-        st.subheader("Monthly Sales Trend")
-        # Fixed the sort values / index parameter bug entirely
-        monthly_sales = df.groupby('InvoiceMonth')['TotalSpend'].sum().sort_index()
-        st.line_chart(monthly_sales)
+        st.subheader("Monthly Revenue Growth Trend")
+        monthly_sales = df.groupby('InvoiceMonth')['TotalSpend'].sum().sort_index().reset_index()
+        fig_line = px.line(monthly_sales, x='InvoiceMonth', y='TotalSpend', markers=True, template='plotly_white')
+        fig_line.update_traces(line_color='#ff4b4b')
+        st.plotly_chart(fig_line, use_container_width=True)
 
 # --- TAB 2: SEGMENTATION ---
 with tabs[1]:
     st.header("Predictive Customer Classification Engine")
+    
+    # Add a Plotly scatter distribution view showing the trained ML clusters
+    st.subheader("3D Cluster Distribution View")
+    fig_scatter = px.scatter_3d(rfm, x='Recency', y='Frequency', z='Monetary', color='Cluster',
+                                 color_continuous_scale='Rainbow', opacity=0.7, template='plotly_white')
+    st.plotly_chart(fig_scatter, use_container_width=True)
+    
+    st.markdown("---")
+    st.subheader("Classify a New Profile Instance")
     c1, c2, c3 = st.columns(3)
     with c1:
         recency = st.number_input("Days since last checkout", 1, 365, 45)
@@ -144,10 +185,16 @@ with tabs[2]:
                 st.metric(f"Match Rank #{idx+1}", f"{metric_score*100:.1f}%")
                 st.write(p_name)
 
-# --- TAB 4: COHORT ANALYSIS ---
+# --- TAB 4: COHORT ANALYSIS (PROPER SEABORN HEATMAP VISUAL) ---
 with tabs[3]:
-    st.header("User Lifecycle Cohort Analysis")
+    st.header("User Lifecycle Cohort Analysis Heatmap")
     st.write("Percentage values track user retention trajectories relative to original sign-up timelines.")
     
-    formatted_retention = retention_matrix.style.format("{:.1%}", na_rep="")
-    st.dataframe(formatted_retention, use_container_width=True)
+    # Generate the clear heatmap figure using matplotlib and seaborn
+    fig, ax = plt.subplots(figsize=(12, 6))
+    sns.heatmap(retention_matrix, annot=True, fmt=".1%", cmap="YlGnBu", cbar=True, ax=ax, encoding='utf-8')
+    plt.title("Customer Retention Heatmap (Monthly Cohorts)")
+    plt.ylabel("Cohort Grouping Month")
+    plt.xlabel("Months Elapsed Since Activation")
+    
+    st.pyplot(fig)
