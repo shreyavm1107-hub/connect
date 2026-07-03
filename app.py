@@ -17,6 +17,7 @@ st.markdown("---")
 # --- Optimized Data & ML Pipeline ---
 @st.cache_resource
 def load_and_process_data():
+    # Explicitly defining the URL right at the top of the function
     DATA_URL = "https://raw.githubusercontent.com/databricks/Spark-The-Definitive-Guide/master/data/retail-data/all/online-retail-dataset.csv"
     
     # Fast load: Use only the first 150,000 rows to prevent the free server from stalling
