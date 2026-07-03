@@ -18,18 +18,11 @@ st.markdown("---")
 # --- Data & Machine Learning Pipeline ---
 @st.cache_resource
 def initialize_ml_pipeline():
-    # ⚠️ PASTE YOUR COPIED RAW GITHUB CSV URL BETWEEN THE QUOTES BELOW:
-    DATA_URL = "PASTE_YOUR_RAW_GITHUB_LINK_HERE"
+    # High-speed public mirror of the exact same Online Retail dataset
+    DATA_URL = "https://raw.githubusercontent.com/databricks/Spark-The-Definitive-Guide/master/data/retail-data/all/online-retail-dataset.csv"
     
-    if DATA_URL == "PASTE_YOUR_RAW_GITHUB_LINK_HERE":
-        st.error("🚨 Configuration Error: Please replace the placeholder link in app.py with your raw GitHub CSV URL.")
-        st.stop()
-        
-    # Load data dynamically from your repository
-    try:
-        df = pd.read_csv(DATA_URL, encoding='ISO-8859-1')
-    except Exception:
-        df = pd.read_csv(DATA_URL, encoding='utf-8', errors='ignore')
+    # Load data dynamically
+    df = pd.read_csv(DATA_URL, encoding='ISO-8859-1')
         
     # Match uniform column formats
     df.columns = [col.strip() for col in df.columns]
