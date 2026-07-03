@@ -181,4 +181,4 @@ with tabs[1]:
         segment_counts.columns = ['Segment Profile', 'Count']
         fig_seg = px.bar(segment_counts, x='Segment Profile', y='Count', color='Segment Profile',
                          color_discrete_sequence=px.colors.qualitative.Pastel, template='plotly_white')
-        st.plotly_chart(fig_seg, use_container_
+        st.plotly_chart(fig_seg, use_container_width=True)
