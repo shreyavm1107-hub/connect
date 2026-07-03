@@ -57,9 +57,7 @@ def load_and_process_data():
     item_similarity = cosine_similarity(pivot_matrix)
     similarity_df = pd.DataFrame(item_similarity, index=pivot_matrix.index, columns=pivot_matrix.index)
     
-    # 4. Cohort Analysis Construction
-    df['CohortMonth'] = df.groupby('CustomerID')['InvoiceDate'].transform('Strain').dt.to_period('M')
-    # fallback to manual cohort calculation if transform variant acts up
+    # 4. Cohort Analysis Construction (Fixed Syntax Error)
     df['CohortMonth'] = df.groupby('CustomerID')['InvoiceDate'].transform(lambda x: x.min().to_period('M'))
     df['CohortIndex'] = (df['InvoiceMonth'].dt.year - df['CohortMonth'].dt.year) * 12 + (df['InvoiceMonth'].dt.month - df['CohortMonth'].dt.month)
     
@@ -90,14 +88,24 @@ with tabs[0]:
     # High-level Metrics Row
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Total Sales Volume", f"${df['TotalSpend'].sum():,.2f}")
-    m2.metric("Total Registered Transactions", f"{df['InvoiceNo'].nunique():,}")
+    m2.metric("Total Transactions", f"{df['InvoiceNo'].nunique():,}")
     m3.metric("Unique Items Cataloged", f"{df['StockCode'].nunique():,}")
     m4.metric("Active Customer Base", f"{df['CustomerID'].nunique():,}")
     
-    # Basic Dataframes & Visual Splits
-    st.subheader("Sales Activity By Country Profile (Top 10)")
-    country_sales = df.groupby('Country')['TotalSpend'].sum().sort_values(ascending=False).head(10)
-    st.bar_chart(country_sales)
+    st.markdown("---")
+    
+    col_left, col_right = st.columns(2)
+    with col_left:
+        st.subheader("Sales Activity By Country Profile (Top 10)")
+        country_sales = df.groupby('Country')['TotalSpend'].sum().sort_values(ascending=False).head(10)
+        st.bar_chart(country_sales)
+        
+    with col_right:
+        st.subheader("Monthly Sales Trend")
+        monthly_sales = df.groupby('InvoiceMonth')['TotalSpend'].sum().sort_values(by='InvoiceMonth')
+        # Convert index to string for compatible chart rendering
+        monthly_sales.index = monthly_sales.index.astype(str)
+        st.line_chart(monthly_sales)
 
 # --- TAB 2: SEGMENTATION ---
 with tabs[1]:
@@ -136,5 +144,6 @@ with tabs[3]:
     st.write("Percentage values track user retention trajectories relative to original sign-up timelines.")
     
     # Present formatted matrix view directly
+    retention_matrix.index = retention_matrix.index.astype(str)
     formatted_retention = retention_matrix.style.format("{:.1%}", na_rep="")
     st.dataframe(formatted_retention, use_container_width=True)
