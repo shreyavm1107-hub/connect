@@ -4,123 +4,137 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import cosine_similarity
-import os
 
-# Set up page styling
-st.set_page_config(page_title="Shopper Spectrum", layout="wide")
+# Set up page layout
+st.set_page_config(page_title="Shopper Spectrum Pro", layout="wide")
 
 # --- App Branding Header ---
-st.title("🛍️ Shopper Spectrum: E-Commerce Analytics Dashboard")
+st.title("🛍️ Shopper Spectrum: Advanced E-Commerce Analytics")
 st.subheader("Created by Shreya Mohite")
-st.write("An end-to-end Machine Learning pipeline for Customer Segmentation and Product Recommendations.")
+st.write("An end-to-end Machine Learning and Business Intelligence platform powered by the Online Retail Dataset.")
 st.markdown("---")
 
-# --- Data & Machine Learning Pipeline ---
+# --- Optimized Data & ML Pipeline ---
 @st.cache_resource
-def initialize_ml_pipeline():
-    # High-speed public mirror of the exact same Online Retail dataset
+def load_and_process_data():
     DATA_URL = "https://raw.githubusercontent.com/databricks/Spark-The-Definitive-Guide/master/data/retail-data/all/online-retail-dataset.csv"
     
-    # Load data dynamically
     df = pd.read_csv(DATA_URL, encoding='ISO-8859-1')
-        
-    # Match uniform column formats
     df.columns = [col.strip() for col in df.columns]
     
-    # Standard Data Cleaning
+    # Cleaning
     df.dropna(subset=['CustomerID'], inplace=True)
     df['CustomerID'] = df['CustomerID'].astype(int)
     df = df[~df['InvoiceNo'].astype(str).str.startswith('C', na=False)]
     df = df[(df['Quantity'] > 0) & (df['UnitPrice'] > 0)]
     df['TotalSpend'] = df['Quantity'] * df['UnitPrice']
-    
-    # Handle explicit date parsing variations
     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], errors='coerce')
     df.dropna(subset=['InvoiceDate'], inplace=True)
     
-    # Feature Engineering (RFM Analysis)
+    # 1. Base Data for EDA
+    df['InvoiceMonth'] = df['InvoiceDate'].dt.to_period('M')
+    
+    # 2. RFM Feature Engineering for Clustering
     snapshot_date = df['InvoiceDate'].max() + pd.DateOffset(days=1)
     rfm = df.groupby('CustomerID').agg({
         'InvoiceDate': lambda x: (snapshot_date - x.max()).days,
         'InvoiceNo': 'nunique',
         'TotalSpend': 'sum'
     }).rename(columns={'InvoiceDate': 'Recency', 'InvoiceNo': 'Frequency', 'TotalSpend': 'Monetary'})
-    
     rfm = rfm[(rfm['Recency'] > 0) & (rfm['Frequency'] > 0) & (rfm['Monetary'] > 0)]
-    rfm_log = np.log1p(rfm)
     
-    # Train Clustering Model
+    rfm_log = np.log1p(rfm)
     scaler = StandardScaler()
     rfm_scaled = scaler.fit_transform(rfm_log)
     kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
     kmeans.fit(rfm_scaled)
     
-    # Train Recommendation Engine (Filtered to optimize computing speeds)
+    # 3. Product Recommendation Setup
     df['Description'] = df['Description'].str.strip()
-    df = df[df['Description'] != ""]
-    top_items = df['Description'].value_counts().head(400).index
+    top_items = df['Description'].value_counts().head(300).index
     df_filtered = df[df['Description'].isin(top_items)]
-    
     pivot_matrix = df_filtered.groupby(['Description', 'CustomerID'])['Quantity'].sum().unstack().fillna(0)
     item_similarity = cosine_similarity(pivot_matrix)
     similarity_df = pd.DataFrame(item_similarity, index=pivot_matrix.index, columns=pivot_matrix.index)
     
-    return scaler, kmeans, similarity_df
+    # 4. Cohort Analysis Construction
+    df['CohortMonth'] = df.groupby('CustomerID')['InvoiceDate'].transform('Strain').dt.to_period('M')
+    # fallback to manual cohort calculation if transform variant acts up
+    df['CohortMonth'] = df.groupby('CustomerID')['InvoiceDate'].transform(lambda x: x.min().to_period('M'))
+    df['CohortIndex'] = (df['InvoiceMonth'].dt.year - df['CohortMonth'].dt.year) * 12 + (df['InvoiceMonth'].dt.month - df['CohortMonth'].dt.month)
+    
+    cohort_data = df.groupby(['CohortMonth', 'CohortIndex'])['CustomerID'].nunique().reset_index()
+    cohort_pivot = cohort_data.pivot(index='CohortMonth', columns='CohortIndex', values='CustomerID')
+    cohort_sizes = cohort_pivot.iloc[:, 0]
+    retention_matrix = cohort_pivot.divide(cohort_sizes, axis=0)
+    
+    return df, rfm, scaler, kmeans, similarity_df, retention_matrix
 
-# Run the pipeline
-scaler, kmeans, similarity_df = initialize_ml_pipeline()
+# Initialize Data Elements
+df, rfm, scaler, kmeans, similarity_df, retention_matrix = load_and_process_data()
 
-# Define customer group categories
 CLUSTER_MAP = {
-    0: {"name": "At-Risk / Churned Customers", "strategy": "Offer exclusive win-back discounts and send targeted 'We miss you' emails.", "color": "🔴"},
-    1: {"name": "High-Value Champions", "strategy": "Offer early access to new collections and invite them to an elite loyalty rewards program.", "color": "🟢"},
-    2: {"name": "New / Occasional Buyers", "strategy": "Send welcoming onboarding guides and initial purchase coupons.", "color": "🔵"},
-    3: {"name": "Regular / Loyal Shoppers", "strategy": "Upsell related high-margin items and provide bundle milestones.", "color": "🟡"}
+    0: {"name": "At-Risk Customers", "strategy": "Win-back discounts.", "color": "🔴"},
+    1: {"name": "High-Value Champions", "strategy": "VIP Program invitation.", "color": "🟢"},
+    2: {"name": "New Buyers", "strategy": "Welcome onboarding sequences.", "color": "🔵"},
+    3: {"name": "Regular/Loyal Shoppers", "strategy": "Cross-sell bundle milestones.", "color": "🟡"}
 }
 
-# --- Layout Configuration ---
-tab1, tab2 = st.tabs(["🎯 Customer Segmentation Module", "📦 Product Recommendation Engine"])
+# --- Multi-Tab Application Frame ---
+tabs = st.tabs(["📊 Exploratory Data Analysis", "🎯 Customer Segmentation", "📦 Product Recommendations", "📈 Cohort Retention Analysis"])
 
-# --- TAB 1: CUSTOMER SEGMENTATION ---
-with tab1:
-    st.header("Predict Customer Lifetime Behavior Segments")
-    st.write("Input custom parameters below to evaluate an individual customer's business value profile.")
+# --- TAB 1: EDA ---
+with tabs[0]:
+    st.header("Exploratory Data Analysis Overview")
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        recency = st.number_input("Recency (Days since last checkout)", min_value=1, max_value=365, value=30)
-    with col2:
-        frequency = st.number_input("Frequency (Total distinct invoices)", min_value=1, max_value=500, value=5)
-    with col3:
-        monetary = st.number_input("Monetary Value (Total revenue generated ($))", min_value=1.0, max_value=50000.0, value=350.0)
+    # High-level Metrics Row
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Sales Volume", f"${df['TotalSpend'].sum():,.2f}")
+    m2.metric("Total Registered Transactions", f"{df['InvoiceNo'].nunique():,}")
+    m3.metric("Unique Items Cataloged", f"{df['StockCode'].nunique():,}")
+    m4.metric("Active Customer Base", f"{df['CustomerID'].nunique():,}")
+    
+    # Basic Dataframes & Visual Splits
+    st.subheader("Sales Activity By Country Profile (Top 10)")
+    country_sales = df.groupby('Country')['TotalSpend'].sum().sort_values(ascending=False).head(10)
+    st.bar_chart(country_sales)
 
-    if st.button("Run Profile Classification"):
+# --- TAB 2: SEGMENTATION ---
+with tabs[1]:
+    st.header("Predictive Customer Classification Engine")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        recency = st.number_input("Days since last checkout", 1, 365, 45)
+    with c2:
+        frequency = st.number_input("Total checkout instances", 1, 500, 12)
+    with c3:
+        monetary = st.number_input("Total continuous revenue spending ($)", 1.0, 50000.0, 850.0)
+        
+    if st.button("Evaluate Customer Persona Group"):
         input_data = np.array([[recency, frequency, monetary]])
-        input_log = np.log1p(input_data)
-        input_scaled = scaler.transform(input_log)
-        
-        predicted_cluster = kmeans.predict(input_scaled)[0]
-        persona = CLUSTER_MAP[predicted_cluster]
-        
-        st.markdown("### **Profile Analysis Results:**")
-        st.info(f"**Identified Category:** {persona['color']} **{persona['name']}**")
-        st.success(f"**Recommended Marketing Plan:** {persona['strategy']}")
+        input_scaled = scaler.transform(np.log1p(input_data))
+        cluster_id = kmeans.predict(input_scaled)[0]
+        meta = CLUSTER_MAP[cluster_id]
+        st.info(f"Classification: {meta['color']} **{meta['name']}**")
+        st.success(f"Strategic Directing: {meta['strategy']}")
 
-# --- TAB 2: PRODUCT RECOMMENDATIONS ---
-with tab2:
-    st.header("Product Recommendation Module")
-    st.write("Select a retail product below to view complementary merchandise recommended by collaborative filtering filters.")
+# --- TAB 3: RECOMMENDATIONS ---
+with tabs[2]:
+    st.header("Item Collaborative Recommendation Matrix")
+    selected_prod = st.selectbox("Select a catalog merchandise asset:", similarity_df.index.tolist())
+    if st.button("Run Similarity Matrix Matching"):
+        recs = similarity_df[selected_prod].sort_values(ascending=False).iloc[1:6]
+        cols = st.columns(5)
+        for idx, (p_name, metric_score) in enumerate(recs.items()):
+            with cols[idx]:
+                st.metric(f"Match Rank #{idx+1}", f"{metric_score*100:.1f}%")
+                st.write(p_name)
+
+# --- TAB 4: COHORT ANALYSIS ---
+with tabs[3]:
+    st.header("User Lifecycle Cohort Analysis")
+    st.write("Percentage values track user retention trajectories relative to original sign-up timelines.")
     
-    product_list = similarity_df.index.tolist()
-    selected_product = st.selectbox("Search or choose a retail catalog item:", product_list)
-    
-    if st.button("Generate Smart Recommendations"):
-        if selected_product:
-            recommendations = similarity_df[selected_product].sort_values(ascending=False).iloc[1:6]
-            
-            st.markdown("### Top 5 Frequently Bought Together Items:")
-            cols = st.columns(5)
-            for i, (prod_name, score) in enumerate(recommendations.items()):
-                with cols[i]:
-                    st.metric(label=f"Match #{i+1}", value=f"{score*100:.1f}% Confidence")
-                    st.write(f"**{prod_name}**")
+    # Present formatted matrix view directly
+    formatted_retention = retention_matrix.style.format("{:.1%}", na_rep="")
+    st.dataframe(formatted_retention, use_container_width=True)
