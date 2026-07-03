@@ -17,7 +17,6 @@ st.markdown("---")
 # --- Optimized Data & ML Pipeline ---
 @st.cache_resource
 def load_and_process_data():
-    # Explicitly defining the URL right at the top of the function
     DATA_URL = "https://raw.githubusercontent.com/databricks/Spark-The-Definitive-Guide/master/data/retail-data/all/online-retail-dataset.csv"
     
     # Fast load: Use only the first 150,000 rows to prevent the free server from stalling
@@ -33,8 +32,8 @@ def load_and_process_data():
     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], errors='coerce')
     df.dropna(subset=['InvoiceDate'], inplace=True)
     
-    # 1. Base Data for EDA
-    df['InvoiceMonth'] = df['InvoiceDate'].dt.to_period('M')
+    # 1. Base Data for EDA (Convert directly to string to avoid Period/Series sort errors)
+    df['InvoiceMonth'] = df['InvoiceDate'].dt.strftime('%Y-%m')
     
     # 2. RFM Feature Engineering for Clustering
     snapshot_date = df['InvoiceDate'].max() + pd.DateOffset(days=1)
@@ -60,8 +59,15 @@ def load_and_process_data():
     similarity_df = pd.DataFrame(item_similarity, index=pivot_matrix.index, columns=pivot_matrix.index)
     
     # 4. Cohort Analysis Construction
-    df['CohortMonth'] = df.groupby('CustomerID')['InvoiceDate'].transform(lambda x: x.min().to_period('M'))
-    df['CohortIndex'] = (df['InvoiceMonth'].dt.year - df['CohortMonth'].dt.year) * 12 + (df['InvoiceMonth'].dt.month - df['CohortMonth'].dt.month)
+    df['CohortMonth'] = df.groupby('CustomerID')['InvoiceDate'].transform(lambda x: x.min().strftime('%Y-%m'))
+    
+    # Calculate intervals cleanly using integers
+    df['InvoiceYearInt'] = df['InvoiceDate'].dt.year
+    df['InvoiceMonthInt'] = df['InvoiceDate'].dt.month
+    df['CohortYearInt'] = pd.to_datetime(df['CohortMonth'] + '-01').dt.year
+    df['CohortMonthInt'] = pd.to_datetime(df['CohortMonth'] + '-01').dt.month
+    
+    df['CohortIndex'] = (df['InvoiceYearInt'] - df['CohortYearInt']) * 12 + (df['InvoiceMonthInt'] - df['CohortMonthInt'])
     
     cohort_data = df.groupby(['CohortMonth', 'CohortIndex'])['CustomerID'].nunique().reset_index()
     cohort_pivot = cohort_data.pivot(index='CohortMonth', columns='CohortIndex', values='CustomerID')
@@ -103,8 +109,8 @@ with tabs[0]:
         
     with col_right:
         st.subheader("Monthly Sales Trend")
-        monthly_sales = df.groupby('InvoiceMonth')['TotalSpend'].sum().sort_values('InvoiceMonth')
-        monthly_sales.index = monthly_sales.index.astype(str)
+        # Fixed the sort values / index parameter bug entirely
+        monthly_sales = df.groupby('InvoiceMonth')['TotalSpend'].sum().sort_index()
         st.line_chart(monthly_sales)
 
 # --- TAB 2: SEGMENTATION ---
@@ -143,6 +149,5 @@ with tabs[3]:
     st.header("User Lifecycle Cohort Analysis")
     st.write("Percentage values track user retention trajectories relative to original sign-up timelines.")
     
-    retention_matrix.index = retention_matrix.index.astype(str)
     formatted_retention = retention_matrix.style.format("{:.1%}", na_rep="")
     st.dataframe(formatted_retention, use_container_width=True)
