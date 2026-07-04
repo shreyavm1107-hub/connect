@@ -24,7 +24,7 @@ with st.sidebar:
 # --- App Branding Header ---
 st.title("🛍️ Shopper Spectrum: Advanced E-Commerce Analytics")
 st.subheader("Created by Shreya Mohite")
-st.write("An end-to-end Machine Learning and Business Intelligence platform powered by the Online Retail Dataset.")
+st.write("An end-to-end Machine Learning and e-commerce analytics platform powered by the Online Retail Dataset.")
 st.markdown("---")
 
 # --- Optimized Data & ML Pipeline ---
