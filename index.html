@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Genfit Sports Toddlers League — Pune Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pmc:#2f7d7d;
+    --pmc-light:#e3f1f1;
+    --pcmc:#e2643b;
+    --pcmc-light:#fbe8e0;
+    --ink:#1f2a2a;
+    --sub:#5c6b6b;
+    --cream:#faf6ee;
+    --card:#ffffff;
+    --line:#e7e1d3;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    padding:0 0 48px;
+  }
+  header{
+    padding:40px 48px 28px;
+    border-bottom:3px solid var(--ink);
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:16px;
+  }
+  header h1{
+    font-family:'Fredoka',sans-serif;
+    font-size:34px;
+    font-weight:700;
+    margin:0;
+    letter-spacing:-0.5px;
+  }
+  header p{
+    margin:6px 0 0;
+    color:var(--sub);
+    font-size:14px;
+  }
+  .badge-row{display:flex;gap:10px;}
+  .badge{
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    padding:8px 16px;
+    border-radius:100px;
+  }
+  .badge.pmc{background:var(--pmc-light);color:var(--pmc);}
+  .badge.pcmc{background:var(--pcmc-light);color:var(--pcmc);}
+
+  main{padding:32px 48px;max-width:1180px;margin:0 auto;}
+
+  .kpis{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:16px;
+    margin-bottom:36px;
+  }
+  .kpi{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px 22px;
+  }
+  .kpi .label{font-size:12.5px;color:var(--sub);text-transform:uppercase;letter-spacing:0.06em;}
+  .kpi .value{font-family:'Fredoka',sans-serif;font-size:32px;font-weight:700;margin-top:6px;}
+  .kpi.pmc{border-top:4px solid var(--pmc);}
+  .kpi.pcmc{border-top:4px solid var(--pcmc);}
+
+  section{margin-bottom:44px;}
+  h2{
+    font-family:'Fredoka',sans-serif;
+    font-size:19px;
+    font-weight:600;
+    margin:0 0 4px;
+  }
+  .section-sub{color:var(--sub);font-size:13px;margin-bottom:18px;}
+
+  .grid-2{display:grid;grid-template-columns:1.15fr 0.85fr;gap:24px;}
+  @media(max-width:860px){.grid-2{grid-template-columns:1fr;}}
+
+  .panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:24px;
+  }
+
+  #mapWrap svg{width:100%;height:auto;display:block;}
+  .legend{display:flex;gap:18px;margin-top:14px;font-size:13px;color:var(--sub);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block;}
+  .dot.pmc{background:var(--pmc);}
+  .dot.pcmc{background:var(--pcmc);}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);}
+  th{color:var(--sub);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  tr.zone-pmc td:first-child{border-left:3px solid var(--pmc);padding-left:9px;}
+  tr.zone-pcmc td:first-child{border-left:3px solid var(--pcmc);padding-left:9px;}
+
+  .chart-box{position:relative;height:340px;}
+
+  .school-controls{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .school-controls input[type="text"]{
+    flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;
+    font-family:'Inter',sans-serif;font-size:13.5px;background:var(--cream);
+  }
+  .school-controls select{
+    padding:9px 12px;border:1px solid var(--line);border-radius:8px;
+    font-family:'Inter',sans-serif;font-size:13.5px;background:var(--cream);
+  }
+  .school-table-wrap{max-height:420px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;}
+  #schoolTable{font-size:13px;}
+  #schoolTable thead th{position:sticky;top:0;background:var(--card);z-index:1;}
+  #schoolTable td:first-child{color:var(--sub);width:32px;}
+  .zone-tag{
+    display:inline-block;padding:2px 9px;border-radius:100px;font-size:11px;font-weight:600;
+  }
+  .zone-tag.PMC{background:var(--pmc-light);color:var(--pmc);}
+  .zone-tag.PCMC{background:var(--pcmc-light);color:var(--pcmc);}
+
+  footer{
+    max-width:1180px;margin:0 auto;padding:0 48px;
+    color:var(--sub);font-size:12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Genfit Sports Toddlers League</h1>
+    <p>Pune season dashboard — PMC-Tanvi &amp; PCMC-Shravani zones</p>
+  </div>
+  <div class="badge-row">
+    <span class="badge pmc">PMC-Tanvi</span>
+    <span class="badge pcmc">PCMC-Shravani</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Total students</div><div class="value">160</div></div>
+    <div class="kpi"><div class="label">Total teams</div><div class="value">16</div></div>
+    <div class="kpi"><div class="label">Partner schools</div><div class="value">60</div></div>
+    <div class="kpi pmc"><div class="label">PMC · teams / schools</div><div class="value">8 / 30</div></div>
+    <div class="kpi pcmc"><div class="label">PCMC · teams / schools</div><div class="value">8 / 30</div></div>
+  </div>
+
+  <section class="grid-2">
+    <div class="panel" id="mapWrap">
+      <h2>Where the partner schools are</h2>
+      <div class="section-sub">Bubble size = number of schools in that locality (real coordinates)</div>
+      <svg viewBox="0 0 680 500" role="img" aria-label="Map of Pune showing partner school locations, colored by zone, sized by school count">
+        <title>Genfit Toddlers League partner school locations across Pune</title>
+        <desc>PMC-Tanvi schools in teal across central and eastern Pune; PCMC-Shravani schools in coral across Pimpri-Chinchwad areas</desc>
+
+        <!-- PMC bubbles (teal) -->
+        <g fill="#2f7d7d" fill-opacity="0.55" stroke="#2f7d7d" stroke-width="1">
+          <circle cx="552" cy="276" r="18"><title>Kalyani Nagar — 4 schools</title></circle>
+          <circle cx="582" cy="227" r="12"><title>Viman Nagar — 2 schools</title></circle>
+          <circle cx="360" cy="307" r="9"><title>Model Colony — 1 school</title></circle>
+          <circle cx="260" cy="244" r="12"><title>Aundh — 2 schools</title></circle>
+          <circle cx="196" cy="189" r="9"><title>Vishal Nagar — 1 school</title></circle>
+          <circle cx="184" cy="235" r="12"><title>Baner — 2 schools</title></circle>
+          <circle cx="436" cy="452" r="12"><title>Bibwewadi — 2 schools</title></circle>
+          <circle cx="342" cy="362" r="15"><title>Erandwane — 3 schools</title></circle>
+          <circle cx="273" cy="365" r="9"><title>Kothrud — 1 school</title></circle>
+          <circle cx="314" cy="401" r="9"><title>Karve Nagar — 1 school</title></circle>
+          <circle cx="269" cy="477" r="9"><title>Sinhagad Road — 1 school</title></circle>
+          <circle cx="619" cy="345" r="12"><title>Magarpatta — 2 schools</title></circle>
+          <circle cx="553" cy="427" r="9"><title>Salunke Vihar / NIBM — 1 school</title></circle>
+          <circle cx="568" cy="480" r="9"><title>Undri — 1 school</title></circle>
+          <circle cx="166" cy="202" r="9"><title>Balewadi — 1 school</title></circle>
+          <circle cx="594" cy="269" r="9"><title>Wadgaon Sheri — 1 school</title></circle>
+          <circle cx="620" cy="166" r="9"><title>Lohegaon — 1 school</title></circle>
+          <circle cx="615" cy="361" r="9"><title>Hadapsar — 1 school</title></circle>
+        </g>
+
+        <!-- PCMC bubbles (coral) -->
+        <g fill="#e2643b" fill-opacity="0.55" stroke="#e2643b" stroke-width="1">
+          <circle cx="147" cy="151" r="24"><title>Wakad — 6 schools</title></circle>
+          <circle cx="267" cy="94" r="15"><title>Chinchwad — 3 schools</title></circle>
+          <circle cx="166" cy="42" r="15"><title>Nigdi — 3 schools</title></circle>
+          <circle cx="267" cy="118" r="18"><title>Pimpri (+Kharalwadi, Bijlinagar) — 4 schools</title></circle>
+          <circle cx="60" cy="185" r="12"><title>Hinjawadi — 2 schools</title></circle>
+          <circle cx="245" cy="157" r="9"><title>Pimple Saudagar — 1 school</title></circle>
+          <circle cx="386" cy="81" r="12"><title>Bhosari — 2 schools</title></circle>
+          <circle cx="196" cy="40" r="12"><title>Akurdi (+Chinchwad-Akurdi border) — 2 schools</title></circle>
+        </g>
+      </svg>
+      <div class="legend">
+        <span><span class="dot pmc"></span>PMC-Tanvi zone</span>
+        <span><span class="dot pcmc"></span>PCMC-Shravani zone</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Schools by locality</h2>
+      <div class="section-sub">30 PMC + 30 PCMC = 60 total (9 unspecified, not shown)</div>
+      <table>
+        <thead><tr><th>Locality</th><th>Zone</th><th class="num">Schools</th></tr></thead>
+        <tbody>
+          <tr class="zone-pcmc"><td>Wakad</td><td>PCMC</td><td class="num">6</td></tr>
+          <tr class="zone-pmc"><td>Kalyani Nagar</td><td>PMC</td><td class="num">4</td></tr>
+          <tr class="zone-pcmc"><td>Pimpri (+Kharalwadi, Bijlinagar)</td><td>PCMC</td><td class="num">4</td></tr>
+          <tr class="zone-pmc"><td>Erandwane</td><td>PMC</td><td class="num">3</td></tr>
+          <tr class="zone-pcmc"><td>Chinchwad</td><td>PCMC</td><td class="num">3</td></tr>
+          <tr class="zone-pcmc"><td>Nigdi</td><td>PCMC</td><td class="num">3</td></tr>
+          <tr class="zone-pmc"><td>Viman Nagar</td><td>PMC</td><td class="num">2</td></tr>
+          <tr class="zone-pmc"><td>Aundh</td><td>PMC</td><td class="num">2</td></tr>
+          <tr class="zone-pmc"><td>Baner</td><td>PMC</td><td class="num">2</td></tr>
+          <tr class="zone-pmc"><td>Bibwewadi</td><td>PMC</td><td class="num">2</td></tr>
+          <tr class="zone-pmc"><td>Magarpatta</td><td>PMC</td><td class="num">2</td></tr>
+          <tr class="zone-pcmc"><td>Hinjawadi</td><td>PCMC</td><td class="num">2</td></tr>
+          <tr class="zone-pcmc"><td>Bhosari</td><td>PCMC</td><td class="num">2</td></tr>
+          <tr class="zone-pcmc"><td>Akurdi (+border)</td><td>PCMC</td><td class="num">2</td></tr>
+          <tr class="zone-pmc"><td>10 other PMC localities</td><td>PMC</td><td class="num">10</td></tr>
+          <tr class="zone-pcmc"><td>Pimple Saudagar</td><td>PCMC</td><td class="num">1</td></tr>
+          <tr><td>Unspecified location</td><td>Both</td><td class="num">9</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Top localities by partner school count</h2>
+    <div class="section-sub">Teal = PMC-Tanvi, coral = PCMC-Shravani</div>
+    <div class="chart-box"><canvas id="localityChart" role="img" aria-label="Bar chart of top 10 Pune localities by number of partner schools">Wakad 6, Kalyani Nagar 4, Pimpri 4, Erandwane 3, Chinchwad 3, Nigdi 3, and several localities with 1-2 schools each.</canvas></div>
+  </section>
+
+  <section class="panel">
+    <h2>Student &amp; team split</h2>
+    <div class="chart-box" style="height:220px;"><canvas id="splitChart" role="img" aria-label="Bar chart comparing PMC and PCMC: 8 teams and 80 students each">PCMC: 8 teams, 80 students. PMC: 8 teams, 80 students.</canvas></div>
+  </section>
+
+  <section class="panel">
+    <h2>All partner schools</h2>
+    <div class="section-sub">60 schools — search by name or locality, or filter by zone</div>
+    <div class="school-controls">
+      <input type="text" id="schoolSearch" placeholder="Search school or locality..." oninput="filterSchools()">
+      <select id="zoneFilter" onchange="filterSchools()">
+        <option value="all">All zones</option>
+        <option value="PMC">PMC-Tanvi</option>
+        <option value="PCMC">PCMC-Shravani</option>
+      </select>
+    </div>
+    <div class="school-table-wrap">
+      <table id="schoolTable">
+        <thead><tr><th>#</th><th>School name</th><th>Locality</th><th>Zone</th></tr></thead>
+        <tbody id="schoolTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Built from the Toddler's League Schools List (PMC-Tanvi / PCMC-Shravani). Locality coordinates are real (Google Places); exact per-school addresses were not geocoded individually — schools are grouped by named locality.
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const localityLabels = ['Wakad','Kalyani Nagar','Pimpri','Erandwane','Chinchwad','Nigdi','Viman Nagar','Aundh','Baner','Bibwewadi'];
+const localityValues = [6,4,4,3,3,3,2,2,2,2];
+const localityColors = ['#e2643b','#2f7d7d','#e2643b','#2f7d7d','#e2643b','#e2643b','#2f7d7d','#2f7d7d','#2f7d7d','#2f7d7d'];
+
+new Chart(document.getElementById('localityChart'), {
+  type: 'bar',
+  data: { labels: localityLabels, datasets: [{ data: localityValues, backgroundColor: localityColors, borderRadius: 4, maxBarThickness: 34 }] },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, grid: { color: '#e7e1d3' }, ticks: { color: '#5c6b6b' } },
+      x: { grid: { display: false }, ticks: { color: '#5c6b6b' } }
+    }
+  }
+});
+
+const schools = [
+  ["Mindseed Preschool & Daycare", "Kalyani Nagar", "PMC"],
+  ["Kidzee Viman Nagar", "Viman Nagar", "PMC"],
+  ["Symbi Stars School", "Model Colony", "PMC"],
+  ["Kangaroo Kids", "Aundh", "PMC"],
+  ["EuroKids Viman Nagar", "Viman Nagar", "PMC"],
+  ["KLAY Kalyani Nagar", "Kalyani Nagar", "PMC"],
+  ["Ducktales Preschool", "Kalyani Nagar", "PMC"],
+  ["Keiko Kids Preschool & Daycare", "Vishal Nagar", "PMC"],
+  ["Vivero International Preschool & Child Care", "Kalyani Nagar", "PMC"],
+  ["Seedlings Preschool", "Baner", "PMC"],
+  ["Foundree Preschool and Daycare", "Baner", "PMC"],
+  ["FirstCry Intellitots Preschool & Daycare", "Unspecified", "PMC"],
+  ["Royal Kidz Preschool & Daycare", "Unspecified", "PMC"],
+  ["The Tree House Preschool", "Bibwewadi", "PMC"],
+  ["Jumpstart International", "Erandwane", "PMC"],
+  ["Podar Jumbo Kids", "Kothrud", "PMC"],
+  ["Hello Kids Preschool", "Karve Nagar", "PMC"],
+  ["Little Millennium", "Sinhagad Road", "PMC"],
+  ["FirstCry Intellitots", "Magarpatta", "PMC"],
+  ["Jumpstart International Preschool", "Magarpatta", "PMC"],
+  ["Petals Kids Preschool & Daycare", "NIBM / Salunke Vihar", "PMC"],
+  ["Little Millennium", "Undri", "PMC"],
+  ["Blossom Preschool & Daycare", "Bibwewadi", "PMC"],
+  ["Mindseed Preschool & Daycare", "Aundh", "PMC"],
+  ["Jumpstart International Preschool", "Erandwane", "PMC"],
+  ["Nerva Preschool & Daycare", "Erandwane", "PMC"],
+  ["Petals Kids Preschool", "Balewadi", "PMC"],
+  ["Little Millennium", "Wadgaon Sheri", "PMC"],
+  ["Little Millennium", "Lohegaon", "PMC"],
+  ["Archbishop International Preschool", "Hadapsar", "PMC"],
+  ["Wisdom World School", "Wakad", "PCMC"],
+  ["Elpro International School", "Chinchwad", "PCMC"],
+  ["ORCHIDS The International School", "Chinchwad", "PCMC"],
+  ["New Pune Public School", "Nigdi", "PCMC"],
+  ["Sanskruti International School", "Wakad", "PCMC"],
+  ["EuroSchool Wakad", "Wakad", "PCMC"],
+  ["Podar International School", "Chinchwad", "PCMC"],
+  ["Vedh Valley World School", "Wakad", "PCMC"],
+  ["Blue Ridge Public School", "Unspecified", "PCMC"],
+  ["City Pride School", "Unspecified", "PCMC"],
+  ["Little Millennium", "Nigdi", "PCMC"],
+  ["Podar Jumbo Kids", "Wakad", "PCMC"],
+  ["GG International School Preschool", "Pimpri", "PCMC"],
+  ["Foundree Preschool & Daycare", "Wakad", "PCMC"],
+  ["Pencil Pod Playschool", "Unspecified", "PCMC"],
+  ["Akshara International School", "Unspecified", "PCMC"],
+  ["Indus Champs School", "Unspecified", "PCMC"],
+  ["Delhi Public School Hinjawadi", "Hinjawadi", "PCMC"],
+  ["D. Y. Patil Dnyanshanti School", "Unspecified", "PCMC"],
+  ["G.K. Gurukul", "Pimple Saudagar", "PCMC"],
+  ["VIBGYOR Rise", "Chinchwad-Akurdi Border", "PCMC"],
+  ["Royaal World School", "Bhosari", "PCMC"],
+  ["Arise International School", "Bhosari", "PCMC"],
+  ["D Y Patil Dnyanshanti School", "Akurdi", "PCMC"],
+  ["Judson High School", "Unspecified", "PCMC"],
+  ["Chavara International School", "Kharalwadi / Pimpri", "PCMC"],
+  ["Mahindra International School", "Hinjawadi", "PCMC"],
+  ["Happy Kids Preschool", "Bijlinagar, Pimpri", "PCMC"],
+  ["Little Elites Pre School", "Pimpri", "PCMC"],
+  ["FirstCry Intellitots Preschool & Daycare", "Nigdi Pradhikaran", "PCMC"]
+];
+
+function renderSchools(rows){
+  const body = document.getElementById('schoolTableBody');
+  body.innerHTML = rows.map((s, i) =>
+    `<tr><td>${i+1}</td><td>${s[0]}</td><td>${s[1]}</td><td><span class="zone-tag ${s[2]}">${s[2]}</span></td></tr>`
+  ).join('');
+}
+
+function filterSchools(){
+  const q = document.getElementById('schoolSearch').value.toLowerCase();
+  const zone = document.getElementById('zoneFilter').value;
+  const filtered = schools.filter(s =>
+    (zone === 'all' || s[2] === zone) &&
+    (s[0].toLowerCase().includes(q) || s[1].toLowerCase().includes(q))
+  );
+  renderSchools(filtered);
+}
+
+renderSchools(schools);
+
+new Chart(document.getElementById('splitChart'), {
+  type: 'bar',
+  data: {
+    labels: ['PMC-Tanvi', 'PCMC-Shravani'],
+    datasets: [
+      { label: 'Teams', data: [8, 8], backgroundColor: '#a8cccc', borderRadius: 4, maxBarThickness: 44 },
+      { label: 'Students', data: [80, 80], backgroundColor: '#e2643b', borderRadius: 4, maxBarThickness: 44 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'top', labels: { color: '#5c6b6b', boxWidth: 12, font: { size: 12 } } } },
+    scales: {
+      y: { beginAtZero: true, grid: { color: '#e7e1d3' }, ticks: { color: '#5c6b6b' } },
+      x: { grid: { display: false }, ticks: { color: '#5c6b6b' } }
+    }
+  }
+});
+</script>
+
+</body>
+</html>
